@@ -1,0 +1,49 @@
+//====================================================================================
+//
+//	テクスチャロード用テキスト[TexLoad.txt]
+//	Author : Kodama Yuto(児玉 優斗)
+//	Editor : Kodama Yuto(児玉 優斗)			←最後に編集した人の名前を書く
+//
+//	書き方→ DATA = (ID) (アドレス(.exeから見た相対アドレス)) (タグ)
+//				 ↑↑　↑									↑
+//					半角スペースを必ず空ける!!
+//
+//====================================================================================
+START_LOAD
+DATA = 00000 data/TEXTURE/block000.jpg  BLOCK
+DATA = 00001 data/TEXTURE/field000.jpg  FIELD
+DATA = 00002 data/TEXTURE/Wall0001.png  WALL
+DATA = 00003 data/TEXTURE/Marker000.png MARKER
+DATA = 00004 data/TEXTURE/player000.png PLAYER
+DATA = 00005 data/TEXTURE/Number000.png NUMBER
+
+DATA = 00006 data/TEXTURE/pause100.png  PAUSE_BG
+DATA = 00007 data/TEXTURE/Tutorial.jpg 	PAUSE_TUTORIAL
+DATA = 00008 data/TEXTURE/pause000.png  PAUSE_MENU_CONTINUE
+DATA = 00009 data/TEXTURE/pause001.png  PAUSE_MENU_QUIT
+
+DATA = 00010 data/TEXTURE/TitleLogo000.png  TITLE_LOGO
+DATA = 00011 data/TEXTURE/Wall0001.png  PRESS_ENTER
+DATA = 00012 data/TEXTURE/life.png  	LIFE
+DATA = 00013 data/TEXTURE/endcall.png  	ENDCALL
+DATA = 00014 data/TEXTURE/ControlUI.png  ControlUI
+DATA = 00015 data/TEXTURE/BG.png  BGUI
+DATA = 00016 data/TEXTURE/作業台.png  作業台
+DATA = 00017 data/TEXTURE/レル縦.png  レル縦
+DATA = 00018 data/TEXTURE/レル横.png  レル横
+DATA = 00019 data/TEXTURE/ゴミ箱.png  ゴミ箱
+DATA = 00020 data/TEXTURE/TITLE_BG.png  TITLE_BG
+DATA = 00021 data/TEXTURE/TITLE_SCROLL.png  TITLE_SCROLL
+DATA = 00022 data/TEXTURE/GAME_COUNT.png  GAME_COUNT
+DATA = 00023 data/TEXTURE/field000.jpg  RANKING_BG
+DATA = 00024 data/TEXTURE/RANKING_SCROLL.png  RANKING_SCROLL
+DATA = 00025 data/TEXTURE/RANKING_RANK.png  RANKING_RANK
+DATA = 00026 data/TEXTURE/statecall.png  スタートコール
+DATA = 00027 data/TEXTURE/haitatu.png  ひと
+DATA = 00028 data/TEXTURE/PRESS.png  PRESS
+DATA = 00029 data/TEXTURE/TUTORIAL_BG.png  TUTORIAL_BG   
+DATA = 00030 data/TEXTURE/収納ボックス＿結合.png  BOX
+DATA = 00031 data/TEXTURE/コンクリBG.png  BG_GAME
+DATA = 00032 data/TEXTURE/仕分けアイテム.png  ITEM
+DATA = 00033 data/TEXTURE/UI_スコア.png  UI_スコア
+END_LOAD

@@ -1,0 +1,1458 @@
+//=============================================================================
+//
+// ゲーム画面処理 [game.cpp]
+// Author : Niwa Hodaka
+//
+//=============================================================================
+#include "game.h"
+#include "fade.h"
+#include "result.h"
+#include "input.h"
+#include "camera.h"
+#include "light.h"
+#include "pause.h"
+#include "rankingscore.h"
+#include "sound.h"
+#include "masu.h"
+#include "course.h"
+#include "obstacle.h"
+#include "player.h"
+#include "billboard.h"
+#include "effect.h"
+#include "particle.h"
+#include "shadow.h"
+#include "woodbg.h"
+#include "meshField.h"
+#include "wall.h"
+#include "dice.h"
+#include "timer.h"
+#include "meter.h"
+#include "countDown.h"
+#include "sky.h"
+#include "orbit.h"
+#include "gameFont.h"
+#include "rank.h"
+#include "frame.h"
+#include "turnNum.h"
+
+//=============================================================================
+// 構造体定義
+//=============================================================================
+
+//*****************************************************************************
+// マスの情報
+//*****************************************************************************
+typedef struct
+{// ブロックの情報
+	D3DXVECTOR3 pos;
+	MASUTYPE masuType;	// ブロックの種類
+} MasuInfo;
+
+//*****************************************************************************
+// コースの情報
+//*****************************************************************************
+typedef struct
+{// ブロックの情報
+	D3DXVECTOR3 pos;
+	D3DXVECTOR3 rot;
+	float fWidth;
+	float fHeight;
+} CourseInfo;
+//*****************************************************************************
+// 壁の情報 (void SetWall(D3DXVECTOR3 pos, D3DXVECTOR3 rot,WALLTYPE type, float fWidth ,float haight))
+//*****************************************************************************
+typedef struct
+{
+	D3DXVECTOR3 pos;
+	D3DXVECTOR3 rot;
+	WALLTYPE	type;
+	float		fwidth;
+	float		fHaight;
+}WallInfo;
+
+//=============================================================================
+// プロトタイプ宣言
+//=============================================================================
+
+//=============================================================================
+// グローバル変数宣言
+//=============================================================================
+GAMESTATE g_GameState = GAMESTATE_NONE;   // ゲームの状態
+int       g_nCounterGameState;            // ゲームの状態管理カウンター
+bool      g_bPuase;                       // ポーズ中かどうか
+TURNSTATE g_TurnState = TURNSTATE_NONE;	  // ターンの状態
+
+// マス情報のデータ
+MasuInfo g_aMasuInfo[] =
+{
+	{ D3DXVECTOR3(0.0f, 0.0f, 0.0f), MASUTYPE_START },
+	{ D3DXVECTOR3(0.0f, 0.0f, 800.0f), MASUTYPE_NORMAL },
+	{ D3DXVECTOR3(580.0f, 0.0f, 1380.0f), MASUTYPE_NORMAL },
+	{ D3DXVECTOR3(580.0f, 0.0f, 2180.0f), MASUTYPE_NORMAL },
+	{ D3DXVECTOR3(0.0f, 0.0f, 2760.0f), MASUTYPE_NORMAL },
+	{ D3DXVECTOR3(-800.0f, 0.0f, 2760.0f), MASUTYPE_NORMAL },
+	{ D3DXVECTOR3(-1330.0f, 0.0f, 3310.0f), MASUTYPE_NORMAL },
+	{ D3DXVECTOR3(-800.0f, 0.0f, 3840.0f), MASUTYPE_NORMAL },
+	{ D3DXVECTOR3(0.0f, 0.0f, 3840.0f), MASUTYPE_NORMAL },
+	{ D3DXVECTOR3(550.0f, 0.0f, 4420.0f), MASUTYPE_NORMAL },
+
+	{ D3DXVECTOR3(0.0f, 0.0f, 5000.0f), MASUTYPE_NORMAL },
+	{ D3DXVECTOR3(0.0f, 0.0f, 5800.0f), MASUTYPE_NORMAL },
+	{ D3DXVECTOR3(-580.0f, 120.0f, 6380.0f), MASUTYPE_NORMAL },
+	{ D3DXVECTOR3(-580.0f, 0.0f, 7180.0f), MASUTYPE_NORMAL },
+	{ D3DXVECTOR3(-1400.0f, 0.0f, 7180.0f), MASUTYPE_NORMAL },
+	{ D3DXVECTOR3(-1950.0f, 0.0f, 7730.0f), MASUTYPE_NORMAL },
+	{ D3DXVECTOR3(-1950.0f, 0.0f, 8500.0f), MASUTYPE_NORMAL },
+	{ D3DXVECTOR3(-1400.0f, 0.0f, 9050.0f), MASUTYPE_NORMAL },
+	{ D3DXVECTOR3(-600.0f, 0.0f, 9050.0f), MASUTYPE_NORMAL },
+
+	{ D3DXVECTOR3(-20.0f, 0.0f, 9620.0f), MASUTYPE_NORMAL },
+	{ D3DXVECTOR3(780.0f, 0.0f, 9620.0f), MASUTYPE_NORMAL },
+	{ D3DXVECTOR3(1350.0f, 0.0f, 10190.0f), MASUTYPE_NORMAL },
+	{ D3DXVECTOR3(2150.0f, 0.0f, 10190.0f), MASUTYPE_NORMAL },
+	{ D3DXVECTOR3(2720.0f, 0.0f, 10760.0f), MASUTYPE_NORMAL },
+	{ D3DXVECTOR3(2720.0f, 0.0f, 11560.0f), MASUTYPE_NORMAL },
+	{ D3DXVECTOR3(2150.0f, 0.0f, 12140.0f), MASUTYPE_NORMAL },
+	{ D3DXVECTOR3(1350.0f, 0.0f, 12140.0f), MASUTYPE_NORMAL },
+	{ D3DXVECTOR3(780.0f, 0.0f, 12720.0f), MASUTYPE_NORMAL },
+	{ D3DXVECTOR3(-20.0f, 0.0f, 12720.0f), MASUTYPE_NORMAL },
+
+	{ D3DXVECTOR3(-600.0f, 0.0f, 13300.0f), MASUTYPE_NORMAL },
+	{ D3DXVECTOR3(-1400.0f, 0.0f, 13300.0f), MASUTYPE_NORMAL },
+	{ D3DXVECTOR3(-1950.0f, 0.0f, 13850.0f), MASUTYPE_NORMAL },
+	{ D3DXVECTOR3(-1400.0f, 0.0f, 14400.0f), MASUTYPE_NORMAL },
+	{ D3DXVECTOR3(-1400.0f, 0.0f, 15200.0f), MASUTYPE_NORMAL },
+	{ D3DXVECTOR3(-1950.0f, 0.0f, 15750.0f), MASUTYPE_NORMAL },
+	{ D3DXVECTOR3(-2800.0f, 0.0f, 15750.0f), MASUTYPE_NORMAL },
+	{ D3DXVECTOR3(-3360.0f, 0.0f, 16290.0f), MASUTYPE_NORMAL },
+	{ D3DXVECTOR3(-3360.0f, 0.0f, 17100.0f), MASUTYPE_NORMAL },
+	{ D3DXVECTOR3(-2800.0f, 0.0f, 17650.0f), MASUTYPE_NORMAL },
+
+	{ D3DXVECTOR3(-2800.0f, 0.0f, 18500.0f), MASUTYPE_NORMAL },
+	{ D3DXVECTOR3(-2200.0f, 0.0f, 19100.0f), MASUTYPE_NORMAL },
+	{ D3DXVECTOR3(-1400.0f, 0.0f, 19100.0f), MASUTYPE_NORMAL },
+	{ D3DXVECTOR3(-800.0f, 0.0f, 19700.0f), MASUTYPE_NORMAL },
+	{ D3DXVECTOR3(-800.0f, 0.0f, 20500.0f), MASUTYPE_NORMAL },
+	{ D3DXVECTOR3(-200.0f, 0.0f, 21100.0f), MASUTYPE_NORMAL },
+	{ D3DXVECTOR3(-200.0f, 0.0f, 21900.0f), MASUTYPE_NORMAL },
+	{ D3DXVECTOR3(-800.0f, 0.0f, 22500.0f), MASUTYPE_NORMAL },
+	{ D3DXVECTOR3(-800.0f, 120.0f, 23300.0f), MASUTYPE_NORMAL },
+	{ D3DXVECTOR3(-800.0f, 120.0f, 24100.0f), MASUTYPE_GOAL },
+};
+//=============================================================================
+//壁の設置
+//=============================================================================
+WallInfo g_WallInfo[] =
+{
+	{ D3DXVECTOR3(0.0f,0.0f,100.0f),D3DXVECTOR3(0.0f,D3DX_PI * 1.0f,0.0f),WALLTYPE_1,100.0f,100.0f },
+	{ D3DXVECTOR3(100.0f,0.0f,900.0f),D3DXVECTOR3(0.0f,D3DX_PI * -0.75f,0.0f),WALLTYPE_1,100.0f,100.0f },
+	{ D3DXVECTOR3(580.0f,0.0f,1480.0f),D3DXVECTOR3(0.0f,D3DX_PI * 1.0f,0.0f),WALLTYPE_1,100.0f,100.0f },
+	{ D3DXVECTOR3(480.0f,0.0f,2280.0f),D3DXVECTOR3(0.0f,D3DX_PI * 0.75f,0.0f),WALLTYPE_1,100.0f,100.0f },
+	{ D3DXVECTOR3(-100.0f,0.0f,2760.0f),D3DXVECTOR3(0.0f,D3DX_PI * 0.5f,0.0f),WALLTYPE_1,100.0f,100.0f },
+	{ D3DXVECTOR3(-900.0f,0.0f,2860.0f),D3DXVECTOR3(0.0f,D3DX_PI * 0.75f,0.0f),WALLTYPE_1,100.0f,100.0f },
+	{ D3DXVECTOR3(-1250.0f,0.0f,3410.0f),D3DXVECTOR3(0.0f,D3DX_PI * -0.75f,0.0f),WALLTYPE_1,100.0f,100.0f },
+	{ D3DXVECTOR3(-670.0f,0.0f,3850.0f),D3DXVECTOR3(0.0f,D3DX_PI * -0.5f,0.0f),WALLTYPE_1,100.0f,100.0f },
+	{ D3DXVECTOR3(100.0f,0.0f,3900.0f),D3DXVECTOR3(0.0f,D3DX_PI * -0.75f,0.0f),WALLTYPE_1,100.0f,100.0f },
+	{ D3DXVECTOR3(500.0f,0.0f,4500.0f),D3DXVECTOR3(0.0f,D3DX_PI * 0.75f,0.0f),WALLTYPE_1,100.0f,100.0f },
+	{ D3DXVECTOR3(0.0f,0.0f,5100.0f),D3DXVECTOR3(0.0f,D3DX_PI * 1.0f,0.0f),WALLTYPE_1,100.0f,100.0f },
+	{ D3DXVECTOR3(-100.0f,0.0f,5900.0f),D3DXVECTOR3(0.0f,D3DX_PI * 0.75f,0.0f),WALLTYPE_1,100.0f,100.0f },
+	{ D3DXVECTOR3(-580.0f,120.0f,6480.0f),D3DXVECTOR3(0.0f,D3DX_PI * 1.0f,0.0f),WALLTYPE_1,100.0f,100.0f },
+	{ D3DXVECTOR3(-680.0f,0.0f,7180.0f),D3DXVECTOR3(0.0f,D3DX_PI * 0.5f,0.0f),WALLTYPE_1,100.0f,100.0f },
+	{ D3DXVECTOR3(-1480.0f,0.0f,7280.0f),D3DXVECTOR3(0.0f,D3DX_PI * 0.75f,0.0f),WALLTYPE_1,100.0f,100.0f },
+	{ D3DXVECTOR3(-1950.0f,0.0f,7830.0f),D3DXVECTOR3(0.0f,D3DX_PI * 1.0f,0.0f),WALLTYPE_1,100.0f,100.0f },
+	{ D3DXVECTOR3(-1850.0f,0.0f,8600.0f),D3DXVECTOR3(0.0f,D3DX_PI * -0.75f,0.0f),WALLTYPE_1,100.0f,100.0f },
+	{ D3DXVECTOR3(-1300.0f,0.0f,9050.0f),D3DXVECTOR3(0.0f,D3DX_PI * -0.5f,0.0f),WALLTYPE_1,100.0f,100.0f },
+	{ D3DXVECTOR3(-500.0f,0.0f,9150.0f),D3DXVECTOR3(0.0f,D3DX_PI * -0.75f,0.0f),WALLTYPE_1,100.0f,100.0f },
+	{ D3DXVECTOR3(80.0f,0.0f,9620.0f),D3DXVECTOR3(0.0f,D3DX_PI * -0.5f,0.0f),WALLTYPE_1,100.0f,100.0f },
+	{ D3DXVECTOR3(880.0f,0.0f,9720.0f),D3DXVECTOR3(0.0f,D3DX_PI * -0.75f,0.0f),WALLTYPE_1,100.0f,100.0f },
+	{ D3DXVECTOR3(1450.0f,0.0f,10190.0f),D3DXVECTOR3(0.0f,D3DX_PI * -0.5f,0.0f),WALLTYPE_1,100.0f,100.0f },
+	{ D3DXVECTOR3(2250.0f,0.0f,11190.0f),D3DXVECTOR3(0.0f,D3DX_PI * -0.75f,0.0f),WALLTYPE_1,100.0f,100.0f },
+	{ D3DXVECTOR3(2720.0f,0.0f,10860.0f),D3DXVECTOR3(0.0f,D3DX_PI * 1.0f,0.0f),WALLTYPE_1,100.0f,100.0f },
+	{ D3DXVECTOR3(2620.0f,0.0f,11660.0f),D3DXVECTOR3(0.0f,D3DX_PI * 0.75f,0.0f),WALLTYPE_1,100.0f,100.0f },
+	{ D3DXVECTOR3(2050.0f,0.0f,12140.0f),D3DXVECTOR3(0.0f,D3DX_PI * 0.5f,0.0f),WALLTYPE_1,100.0f,100.0f },
+	{ D3DXVECTOR3(1250.0f,0.0f,12240.0f),D3DXVECTOR3(0.0f,D3DX_PI * 0.75f,0.0f),WALLTYPE_1,100.0f,100.0f },
+	{ D3DXVECTOR3(680.0f,0.0f,12720.0f),D3DXVECTOR3(0.0f,D3DX_PI * 0.5f,0.0f),WALLTYPE_1,100.0f,100.0f },
+	{ D3DXVECTOR3(-120.0f,0.0f,12820.0f),D3DXVECTOR3(0.0f,D3DX_PI * 0.75f,0.0f),WALLTYPE_1,100.0f,100.0f },
+	{ D3DXVECTOR3(-700.0f,0.0f,13300.0f),D3DXVECTOR3(0.0f,D3DX_PI * 0.5f,0.0f),WALLTYPE_1,100.0f,100.0f },
+	{ D3DXVECTOR3(-1500.0f,0.0f,13400.0f),D3DXVECTOR3(0.0f,D3DX_PI * 0.75f,0.0f),WALLTYPE_1,100.0f,100.0f },
+	{ D3DXVECTOR3(-1850.0f,0.0f,13950.0f),D3DXVECTOR3(0.0f,D3DX_PI * -0.75f,0.0f),WALLTYPE_1,100.0f,100.0f },
+	{ D3DXVECTOR3(-1400.0f,0.0f,14500.0f),D3DXVECTOR3(0.0f,D3DX_PI * 1.0f,0.0f),WALLTYPE_1,100.0f,100.0f },
+	{ D3DXVECTOR3(-1500.0f,0.0f,15300.0f),D3DXVECTOR3(0.0f,D3DX_PI * 0.75f,0.0f),WALLTYPE_1,100.0f,100.0f },
+	{ D3DXVECTOR3(-2050.0f,0.0f,15750.0f),D3DXVECTOR3(0.0f,D3DX_PI * 0.5f,0.0f),WALLTYPE_1,100.0f,100.0f },
+	{ D3DXVECTOR3(-2900.0f,0.0f,15850.0f),D3DXVECTOR3(0.0f,D3DX_PI * 0.75f,0.0f),WALLTYPE_1,100.0f,100.0f },
+	{ D3DXVECTOR3(-3360.0f,0.0f,16390.0f),D3DXVECTOR3(0.0f,D3DX_PI * 1.0f,0.0f),WALLTYPE_1,100.0f,100.0f },
+	{ D3DXVECTOR3(-3260.0f,0.0f,17200.0f),D3DXVECTOR3(0.0f,D3DX_PI * -0.75f,0.0f),WALLTYPE_1,100.0f,100.0f },
+	{ D3DXVECTOR3(-2800.0f,0.0f,17750.0f),D3DXVECTOR3(0.0f,D3DX_PI * 1.0f,0.0f),WALLTYPE_1,100.0f,100.0f },
+	{ D3DXVECTOR3(-2700.0f,0.0f,18600.0f),D3DXVECTOR3(0.0f,D3DX_PI * -0.75f,0.0f),WALLTYPE_1,100.0f,100.0f },
+	{ D3DXVECTOR3(-2100.0f,0.0f,19100.0f),D3DXVECTOR3(0.0f,D3DX_PI * -0.5f,0.0f),WALLTYPE_1,100.0f,100.0f },
+	{ D3DXVECTOR3(-1300.0f,0.0f,19200.0f),D3DXVECTOR3(0.0f,D3DX_PI * -0.75f,0.0f),WALLTYPE_1,100.0f,100.0f },
+	{ D3DXVECTOR3(-800.0f,0.0f,19800.0f),D3DXVECTOR3(0.0f,D3DX_PI * 1.0f,0.0f),WALLTYPE_1,100.0f,100.0f },
+	{ D3DXVECTOR3(-700.0f,0.0f,20600.0f),D3DXVECTOR3(0.0f,D3DX_PI * -0.75f,0.0f),WALLTYPE_1,100.0f,100.0f },
+	{ D3DXVECTOR3(-200.0f,0.0f,21200.0f),D3DXVECTOR3(0.0f,D3DX_PI * 1.0f,0.0f),WALLTYPE_1,100.0f,100.0f },
+	{ D3DXVECTOR3(-300.0f,0.0f,22000.0f),D3DXVECTOR3(0.0f,D3DX_PI * 0.75f,0.0f),WALLTYPE_1,100.0f,100.0f },
+	{ D3DXVECTOR3(-800.0f,0.0f,22600.0f),D3DXVECTOR3(0.0f,D3DX_PI * 1.0f,0.0f),WALLTYPE_1,100.0f,100.0f },
+	{ D3DXVECTOR3(-800.0f,120.0f,23400.0f),D3DXVECTOR3(0.0f,D3DX_PI * 1.0f,0.0f),WALLTYPE_1,100.0f,100.0f },
+
+};
+
+// ブロック情報のデータ
+CourseInfo g_aCourseInfo[] =
+{
+	{ D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), 90.0f, 800.0f },
+	{ D3DXVECTOR3(0.0f, 0.0f, 800.0f), D3DXVECTOR3(0.0f, D3DX_PI * 0.25f, 0.0f), 90.0f, 800.0f },
+
+	/************************************/
+	/*			3コース目				*/
+	/************************************/
+	{ D3DXVECTOR3(580.0f, 0.0f, 1380.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), 90.0f, 200.0f },
+	{ D3DXVECTOR3(580.0f, 0.0f, 1580.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), 45.0f, 400.0f },
+	{ D3DXVECTOR3(580.0f, 0.0f, 1980.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), 90.0f, 200.0f },
+
+	{ D3DXVECTOR3(580.0f, 0.0f, 2180.0f), D3DXVECTOR3(0.0f, D3DX_PI * -0.25f, 0.0f), 90.0f, 800.0f },
+	{ D3DXVECTOR3(0.0f, 0.0f, 2760.0f), D3DXVECTOR3(0.0f, D3DX_PI * -0.5f, 0.0f), 90.0f, 800.0f },
+
+	/************************************/
+	/*			6コース目				*/
+	/************************************/
+	{ D3DXVECTOR3(-800.0f, 0.0f, 2760.0f), D3DXVECTOR3(0.0f, D3DX_PI * -0.25f, 0.0f), 40.0f, 800.0f },
+	{ D3DXVECTOR3(-800.0f, 0.0f, 3010.0f), D3DXVECTOR3(0.0f, D3DX_PI * -0.25f, 0.0f), 40.0f, 400.0f },
+	{ D3DXVECTOR3(-1050.0f, 0.0f, 2760.0f), D3DXVECTOR3(0.0f, D3DX_PI * -0.25f, 0.0f), 40.0f, 400.0f },
+	{ D3DXVECTOR3(-1055.0f, 0.0f, 2815.0f), D3DXVECTOR3(0.0f, D3DX_PI * 0.25f, 0.0f), 40.0f, 300.0f },
+	{ D3DXVECTOR3(-1295.0f, 0.0f, 3025.0f), D3DXVECTOR3(0.0f, D3DX_PI * 0.25f, 0.0f), 40.0f, 300.0f },
+
+
+	{ D3DXVECTOR3(-1330.0f, 0.0f, 3310.0f), D3DXVECTOR3(0.0f, D3DX_PI * 0.25f, 0.0f), 90.0f, 800.0f },
+	{ D3DXVECTOR3(-800.0f, 0.0f, 3885.0f), D3DXVECTOR3(0.0f, D3DX_PI * 0.5f, 0.0f), 45.0f, 800.0f },
+	{ D3DXVECTOR3(0.0f, 0.0f, 3840.0f), D3DXVECTOR3(0.0f, D3DX_PI * 0.25f, 0.0f), 90.0f, 800.0f },
+	{ D3DXVECTOR3(580, 0.0f, 4420.0f), D3DXVECTOR3(0.0f, D3DX_PI * -0.25f, 0.0f), 90.0f, 800.0f },
+
+	/************************************/
+	/*			11コース目				*/
+	/************************************/
+	{ D3DXVECTOR3(0.0f, 0.0f, 5000.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), 90.0f, 300.0f },
+	{ D3DXVECTOR3(0.0f, 0.0f, 5500.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), 90.0f, 300.0f },
+
+	{ D3DXVECTOR3(0.0f, 0.0f, 5800.0f), D3DXVECTOR3(0.0f, D3DX_PI * -0.25f, 0.0f), 90.0f, 800.0f },
+
+	/************************************/
+	/*			13コース目				*/
+	/************************************/
+	{ D3DXVECTOR3(-580.0f, 120.0f, 6380.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), 90.0f, 200.0f },
+	{ D3DXVECTOR3(-580.0f, 0.0f, 6830.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), 90.0f, 270.0f },
+
+	{ D3DXVECTOR3(-580.0f, 0.0f, 7180.0f), D3DXVECTOR3(0.0f, D3DX_PI * -0.5f, 0.0f), 90.0f, 800.0f },
+	{ D3DXVECTOR3(-1400.0f, 0.0f, 7180.0f), D3DXVECTOR3(0.0f, D3DX_PI * -0.25f, 0.0f), 90.0f, 800.0f },
+
+	/************************************/
+	/*			16コース目				*/
+	/************************************/
+	{ D3DXVECTOR3(-2050.0f, 0.0f, 7700.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), 25.0f, 800.0f },
+	{ D3DXVECTOR3(-1850.0f, 0.0f, 7700.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), 25.0f, 800.0f },
+
+	{ D3DXVECTOR3(-1950.0f, 0.0f, 8500.0f), D3DXVECTOR3(0.0f, D3DX_PI * 0.25f, 0.0f), 90.0f, 800.0f },
+	{ D3DXVECTOR3(-1400.0f, 0.0f, 9050.0f), D3DXVECTOR3(0.0f, D3DX_PI * 0.5f, 0.0f), 90.0f, 800.0f },
+
+	/************************************/
+	/*			19コース目				*/
+	/************************************/
+	{ D3DXVECTOR3(-650.0f, 0.0f, 9100.0f), D3DXVECTOR3(0.0f, D3DX_PI * 0.25f, 0.0f), 30.0f, 800.0f },
+	{ D3DXVECTOR3(-550.0f, 0.0f, 9000.0f), D3DXVECTOR3(0.0f, D3DX_PI * 0.25f, 0.0f), 30.0f, 800.0f },
+	{ D3DXVECTOR3(-275.0f, 0.0f, 9250.0f), D3DXVECTOR3(0.0f, D3DX_PI * -0.25f, 0.0f), 40.0f, 130.0f },
+
+	/************************************/
+	/*			20コース目				*/
+	/************************************/
+	{ D3DXVECTOR3(-20.0f, 0.0f, 9630.0f), D3DXVECTOR3(0.0f, D3DX_PI * 0.5f, 0.0f), 30.0f, 200.0f },
+	{ D3DXVECTOR3(210.0f, 0.0f, 9600.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), 30.0f, 250.0f },
+	{ D3DXVECTOR3(240.0f, 0.0f, 9820.0f), D3DXVECTOR3(0.0f, D3DX_PI * 0.5f, 0.0f), 30.0f, 80.0f },
+	{ D3DXVECTOR3(350.0f, 0.0f, 9850.0f), D3DXVECTOR3(0.0f, D3DX_PI, 0.0f), 30.0f, 400.0f },
+	{ D3DXVECTOR3(380.0f, 0.0f, 9480.0f), D3DXVECTOR3(0.0f, D3DX_PI * 0.5f, 0.0f), 30.0f, 80.0f },
+	{ D3DXVECTOR3(490.0f, 0.0f, 9450.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), 30.0f, 200.0f },
+	{ D3DXVECTOR3(460.0f, 0.0f, 9630.0f), D3DXVECTOR3(0.0f, D3DX_PI * 0.5f, 0.0f), 30.0f, 200.0f },
+
+
+	{ D3DXVECTOR3(780.0f, 0.0f, 9620.0f), D3DXVECTOR3(0.0f, D3DX_PI * 0.25f, 0.0f), 90.0f, 800.0f },
+	{ D3DXVECTOR3(1350.0f, 0.0f, 10190.0f), D3DXVECTOR3(0.0f, D3DX_PI * 0.5f, 0.0f), 90.0f, 800.0f },
+	{ D3DXVECTOR3(2150.0f, 0.0f, 10190.0f), D3DXVECTOR3(0.0f, D3DX_PI * 0.25f, 0.0f), 90.0f, 800.0f },
+
+	/************************************/
+	/*			24コース目				*/
+	/************************************/
+	{ D3DXVECTOR3(2720.0f, 0.0f, 10760.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), 30.0f, 400.0f },
+	{ D3DXVECTOR3(2710.0f, 0.0f, 11125.0f), D3DXVECTOR3(0.0f, D3DX_PI * 0.2f, 0.0f), 30.0f, 200.0f },
+	{ D3DXVECTOR3(2730.0f, 0.0f, 11130.0f), D3DXVECTOR3(0.0f, D3DX_PI * -0.2f, 0.0f), 30.0f, 200.0f },
+
+
+	{ D3DXVECTOR3(2720.0f, 0.0f, 11560.0f), D3DXVECTOR3(0.0f, D3DX_PI * -0.25f, 0.0f), 90.0f, 800.0f },
+
+	/************************************/
+	/*			26コース目				*/
+	/************************************/
+	{ D3DXVECTOR3(2150.0f, 0.0f, 12075.0f), D3DXVECTOR3(0.0f, D3DX_PI * -0.5f, 0.0f), 45.0f, 800.0f },
+
+
+	{ D3DXVECTOR3(1350.0f, 0.0f, 12140.0f), D3DXVECTOR3(0.0f, D3DX_PI * -0.25f, 0.0f), 90.0f, 800.0f },
+	/************************************/
+	/*			28コース目				*/
+	/************************************/
+	{ D3DXVECTOR3(-20.0f, 0.0f, 12730.0f), D3DXVECTOR3(0.0f, D3DX_PI * 0.5f, 0.0f), 30.0f, 200.0f },
+	{ D3DXVECTOR3(210.0f, 0.0f, 12700.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), 30.0f, 250.0f },
+	{ D3DXVECTOR3(240.0f, 0.0f, 12920.0f), D3DXVECTOR3(0.0f, D3DX_PI * 0.5f, 0.0f), 30.0f, 80.0f },
+	{ D3DXVECTOR3(350.0f, 0.0f, 12950.0f), D3DXVECTOR3(0.0f, D3DX_PI, 0.0f), 30.0f, 400.0f },
+	{ D3DXVECTOR3(380.0f, 0.0f, 12580.0f), D3DXVECTOR3(0.0f, D3DX_PI * 0.5f, 0.0f), 30.0f, 80.0f },
+	{ D3DXVECTOR3(490.0f, 0.0f, 12550.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), 30.0f, 200.0f },
+	{ D3DXVECTOR3(460.0f, 0.0f, 12730.0f), D3DXVECTOR3(0.0f, D3DX_PI * 0.5f, 0.0f), 30.0f, 200.0f },
+
+
+	{ D3DXVECTOR3(-20.0f, 0.0f, 12720.0f), D3DXVECTOR3(0.0f, D3DX_PI * -0.25f, 0.0f), 90.0f, 800.0f },
+
+	/************************************/
+	/*			30コース目				*/
+	/************************************/
+	{ D3DXVECTOR3(-600.0f, 0.0f, 13350.0f), D3DXVECTOR3(0.0f, D3DX_PI * -0.5f, 0.0f), 45.0f, 800.0f },
+
+	{ D3DXVECTOR3(-1400.0f, 0.0f, 13300.0f), D3DXVECTOR3(0.0f, D3DX_PI * -0.25f, 0.0f), 90.0f, 800.0f },
+
+	/************************************/
+	/*			32コース目				*/
+	/************************************/
+	{ D3DXVECTOR3(-1950.0f, 0.0f, 13850.0f), D3DXVECTOR3(0.0f, D3DX_PI * 0.25f, 0.0f), 30.0f, 800.0f },
+	{ D3DXVECTOR3(-2025.0f, 0.0f, 13925.0f), D3DXVECTOR3(0.0f, D3DX_PI * 0.25f, 0.0f), 30.0f, 775.0f },
+	{ D3DXVECTOR3(-1875.0f, 0.0f, 13775.0f), D3DXVECTOR3(0.0f, D3DX_PI * 0.25f, 0.0f), 30.0f, 775.0f },
+	{ D3DXVECTOR3(-1600.0f, 0.0f, 14050.0f), D3DXVECTOR3(0.0f, D3DX_PI * -0.25f, 0.0f), 50.0f, 200.0f },
+
+
+	/************************************/
+	/*			33コース目				*/
+	/************************************/
+	{ D3DXVECTOR3(-1350.0f, 0.0f, 14400.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), 45.0f, 800.0f },
+
+
+	{ D3DXVECTOR3(-1400.0f, 0.0f, 15200.0f), D3DXVECTOR3(0.0f, D3DX_PI * -0.25f, 0.0f), 90.0f, 800.0f },
+
+	/************************************/
+	/*			35コース目				*/
+	/************************************/
+	{ D3DXVECTOR3(-2750.0f, 0.0f, 15750.0f), D3DXVECTOR3(0.0f, D3DX_PI * 0.5f, 0.0f), 30.0f, 400.0f },
+	{ D3DXVECTOR3(-2375.0f, 0.0f, 15750.0f), D3DXVECTOR3(0.0f, D3DX_PI * 0.3f, 0.0f), 30.0f, 200.0f },
+	{ D3DXVECTOR3(-2375.0f, 0.0f, 15750.0f), D3DXVECTOR3(0.0f, D3DX_PI * 0.65f, 0.0f), 30.0f, 200.0f },
+
+
+	{ D3DXVECTOR3(-2800.0f, 0.0f, 15750.0f), D3DXVECTOR3(0.0f, D3DX_PI * -0.25f, 0.0f), 90.0f, 800.0f },
+	{ D3DXVECTOR3(-3360.0f, 0.0f, 16290.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), 90.0f, 800.0f },
+	{ D3DXVECTOR3(-3360.0f, 0.0f, 17100.0f), D3DXVECTOR3(0.0f, D3DX_PI * 0.25f, 0.0f), 90.0f, 800.0f },
+
+	/************************************/
+	/*			39コース目				*/
+	/************************************/
+	{ D3DXVECTOR3(-2800.0f, 0.0f, 17650.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), 30.0f, 800.0f },
+	{ D3DXVECTOR3(-2900.0f, 0.0f, 17650.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), 30.0f, 825.0f },
+	{ D3DXVECTOR3(-2700.0f, 0.0f, 17650.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), 30.0f, 825.0f },
+	{ D3DXVECTOR3(-2700.0f, 0.0f, 18075.0f), D3DXVECTOR3(0.0f, D3DX_PI * -0.5f, 0.0f), 75.0f, 200.0f },
+
+	{ D3DXVECTOR3(-2800.0f, 0.0f, 18500.0f), D3DXVECTOR3(0.0f, D3DX_PI * 0.25f, 0.0f), 90.0f, 800.0f },
+
+	/************************************/
+	/*			41コース目				*/
+	/************************************/
+	{ D3DXVECTOR3(-1400.0f, 0.0f, 19100.0f), D3DXVECTOR3(0.0f, D3DX_PI * -0.5f, 0.0f), 90.0f, 400.0f },
+
+
+
+	{ D3DXVECTOR3(-1400.0f, 0.0f, 19100.0f), D3DXVECTOR3(0.0f, D3DX_PI * 0.25f, 0.0f), 90.0f, 800.0f },
+	{ D3DXVECTOR3(-800.0f, 0.0f, 19700.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), 90.0f, 800.0f },
+	{ D3DXVECTOR3(-800.0f, 0.0f, 20500.0f), D3DXVECTOR3(0.0f, D3DX_PI * 0.25f, 0.0f), 90.0f, 800.0f },
+	{ D3DXVECTOR3(-200.0f, 0.0f, 21100.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), 90.0f, 800.0f },
+	{ D3DXVECTOR3(-200.0f, 0.0f, 21900.0f), D3DXVECTOR3(0.0f, D3DX_PI * -0.25f, 0.0f), 40.0f, 800.0f },
+	{ D3DXVECTOR3(-800.0f, 0.0f, 22500.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), 90.0f, 800.0f },
+	{ D3DXVECTOR3(-800.0f, 120.0f, 23300.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), 40.0f, 800.0f }, };
+//=============================================================================
+//障害物の設置
+//=============================================================================
+
+OBSTACLE_INFO g_ObstacleInfo[] =
+{
+	/************************************/
+	/*			１コース目				*/
+	/************************************/
+	{ D3DXVECTOR3(-70.0f,0.0f,400.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(70.0f,0.0f,400.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(0.0f,0.0f,400.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-50.0f,0.0f,200.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(50.0f,0.0f,200.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(50.0f,0.0f,600.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-50.0f,0.0f,600.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+
+	/************************************/
+	/*			2コース目				*/
+	/************************************/
+	{ D3DXVECTOR3(170.0f, 0.0f, 970.0f), D3DXVECTOR3(0.0f, D3DX_PI * 0.75f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_STAIRS_S },
+	{ D3DXVECTOR3(190.0f, 0.0f, 990.0f), D3DXVECTOR3(0.0f, D3DX_PI * 0.75f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_STAIRS_M },
+	{ D3DXVECTOR3(210.0f, 0.0f, 1010.0f), D3DXVECTOR3(0.0f, D3DX_PI * 0.75f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_STAIRS_L },
+	{ D3DXVECTOR3(230.0f, 0.0f, 1030.0f), D3DXVECTOR3(0.0f, D3DX_PI * 0.75f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_STAIRS_M },
+	{ D3DXVECTOR3(250.0f, 0.0f, 1050.0f), D3DXVECTOR3(0.0f, D3DX_PI * 0.75f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_STAIRS_S },
+	{ D3DXVECTOR3(395.0f, 0.0f, 1255.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(375.0f, 0.0f, 1275.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(455.0f, 0.0f, 1195.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(475.0f, 0.0f, 1175.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_LOG_M },
+
+	/************************************/
+	/*			4コース目				*/
+	/************************************/
+	{ D3DXVECTOR3(340.0f, 0.0f, 2320.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(360.0f, 0.0f, 2340.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(420.0f, 0.0f, 2400.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(440.0f, 0.0f, 2420.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(150.0f, 0.0f, 2500.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(175.0f, 0.0f, 2525.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(200.0f, 0.0f, 2550.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(225.0f, 0.0f, 2575.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+
+	/************************************/
+	/*			5コース目				*/
+	/************************************/
+	{ D3DXVECTOR3(-250.0f, 0.0f, 2690.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-250.0f, 0.0f, 2760.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-250.0f, 0.0f, 2830.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-400.0f, 0.0f, 2725.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-400.0f, 0.0f, 2795.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-550.0f, 0.0f, 2760.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+
+	/************************************/
+	/*			7コース目				*/
+	/************************************/
+	{ D3DXVECTOR3(-1220.0f, 0.0f, 3525.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-1195.0f, 0.0f, 3500.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-1170.0f, 0.0f, 3475.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+
+	{ D3DXVECTOR3(-1060.0f, 0.0f, 3575.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-1035.0f, 0.0f, 3550.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-1010.0f, 0.0f, 3525.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+
+	{ D3DXVECTOR3(-1020.0f, 0.0f, 3725.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-995.0f, 0.0f, 3700.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-970.0f, 0.0f, 3675.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+
+	/************************************/
+	/*			8コース目				*/
+	/************************************/
+	{ D3DXVECTOR3(-460.0f,0.0f,3885.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f), OBSTACLE_TYPE_HALFSTAIRS_S },
+	{ D3DXVECTOR3(-430.0f,0.0f,3885.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f), OBSTACLE_TYPE_HALFSTAIRS_M },
+	{ D3DXVECTOR3(-400.0f,0.0f,3885.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f), OBSTACLE_TYPE_HALFSTAIRS_L },
+	{ D3DXVECTOR3(-370.0f,0.0f,3885.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f), OBSTACLE_TYPE_HALFSTAIRS_M },
+	{ D3DXVECTOR3(-340.0f,0.0f,3885.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f), OBSTACLE_TYPE_HALFSTAIRS_S },
+	{ D3DXVECTOR3(-628.0f,10.0f,3750.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(2.0f,0.0f,0.0f),OBSTACLE_TYPE_HALFMOVE },
+	{ D3DXVECTOR3(-175.0f,10.0f,3750.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(-2.0f,0.0f,0.0f),OBSTACLE_TYPE_HALFMOVE },
+
+	/************************************/
+	/*			9コース目				*/
+	/************************************/
+	{ D3DXVECTOR3(107, 0.0f, 4053.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(160, 0.0f, 4000.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(213, 0.0f, 3947.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(280, 0.0f, 4060.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(220, 0.0f, 4120.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(330, 0.0f, 4170.0f),D3DXVECTOR3(0.0f,D3DX_PI * -0.25f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_STAIRS_S },
+	{ D3DXVECTOR3(350, 0.0f, 4190.0f),D3DXVECTOR3(0.0f,D3DX_PI * -0.25f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_STAIRS_M },
+	{ D3DXVECTOR3(370, 0.0f, 4210.0f),D3DXVECTOR3(0.0f,D3DX_PI * -0.25f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_STAIRS_L },
+	{ D3DXVECTOR3(390, 0.0f, 4230.0f),D3DXVECTOR3(0.0f,D3DX_PI * -0.25f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_STAIRS_M },
+	{ D3DXVECTOR3(410, 0.0f, 4250.0f),D3DXVECTOR3(0.0f,D3DX_PI * -0.25f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_STAIRS_S },
+
+	/************************************/
+	/*			10コース目				*/
+	/************************************/
+	{ D3DXVECTOR3(355, 0.0f, 4645.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_L },
+	{ D3DXVECTOR3(230, 0.0f, 4690.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_L },
+	{ D3DXVECTOR3(305, 0.0f, 4765.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_L },
+	{ D3DXVECTOR3(205, 0.0f, 4795.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_L },
+
+	/************************************/
+	/*			11コース目				*/
+	/************************************/
+	{ D3DXVECTOR3(90.0f,10.0f,5400.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(-2.0f,0.0f,0.0f),OBSTACLE_TYPE_HALFMOVE },
+
+	/************************************/
+	/*			12コース目				*/
+	/************************************/
+	{ D3DXVECTOR3(-580.0f, 0.0f, 6380.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_BASE },
+	{ D3DXVECTOR3(-150.0f, 0.0f, 5945.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_S },
+	{ D3DXVECTOR3(-170.0f, 0.0f, 5925.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_S },
+	{ D3DXVECTOR3(-130.0f, 0.0f, 5925.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_S },
+	{ D3DXVECTOR3(-150.0f, 0.0f, 5905.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_S },
+
+	{ D3DXVECTOR3(-225.0f, 0.0f, 5960.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-205.0f, 0.0f, 5980.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-245.0f, 0.0f, 5980.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-225.0f, 0.0f, 6000.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+
+	{ D3DXVECTOR3(-275.0f, 0.0f, 6050.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-295.0f, 0.0f, 6070.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-255.0f, 0.0f, 6070.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-275.0f, 0.0f, 6090.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+
+	{ D3DXVECTOR3(-305.0f, 0.0f, 6155.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_L },
+	{ D3DXVECTOR3(-325.0f, 0.0f, 6175.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_L },
+	{ D3DXVECTOR3(-345.0f, 0.0f, 6195.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_L },
+
+	{ D3DXVECTOR3(-380.0f, 0.0f, 6155.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_L },
+	{ D3DXVECTOR3(-400.0f, 0.0f, 6175.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_L },
+	{ D3DXVECTOR3(-420.0f, 0.0f, 6195.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_L },
+
+	{ D3DXVECTOR3(-450.0f, 0.0f, 6150.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_L },
+	{ D3DXVECTOR3(-470.0f, 0.0f, 6170.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_L },
+	{ D3DXVECTOR3(-490.0f, 0.0f, 6190.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_L },
+	{ D3DXVECTOR3(-510.0f, 0.0f, 6210.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_L },
+
+	/************************************/
+	/*			14コース目				*/
+	/************************************/
+	{ D3DXVECTOR3(-850.0f, 0.0f, 7175.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-850.0f, 0.0f, 7250.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-850.0f, 0.0f, 7100.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-1000.0f, 0.0f, 7175.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-1000.0f, 0.0f, 7145.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-1000.0f, 0.0f, 7205.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-1150.0f, 0.0f, 7175.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-1150.0f, 0.0f, 7250.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-1150.0f, 0.0f, 7100.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+
+	/************************************/
+	/*			15コース目				*/
+	/************************************/
+	{ D3DXVECTOR3(-1600.0f, -15.0f, 7375.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,-2.0f,0.0f),OBSTACLE_TYPE_UPDOWNLOG },
+	{ D3DXVECTOR3(-1725.0f, -15.0f, 7500.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,-2.0f,0.0f),OBSTACLE_TYPE_UPDOWNLOG },
+	{ D3DXVECTOR3(-1700.0f, -110.0f, 7400.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,2.0f,0.0f),OBSTACLE_TYPE_UPDOWNLOG },
+	{ D3DXVECTOR3(-1625.0f, -110.0f, 7475.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,2.0f,0.0f),OBSTACLE_TYPE_UPDOWNLOG },
+
+	/************************************/
+	/*			16コース目				*/
+	/************************************/
+	{ D3DXVECTOR3(-1995.0f, 0.0f, 8000.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(1.0f,0.0f,0.0f),OBSTACLE_TYPE_HALFMOVE },
+	{ D3DXVECTOR3(-1905.0f, 0.0f, 8200.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(-1.0f,0.0f,0.0f),OBSTACLE_TYPE_HALFMOVE },
+
+	/************************************/
+	/*			17コース目				*/
+	/************************************/
+	{ D3DXVECTOR3(-1610.0f, -15.0f, 8740.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,-2.0f,0.0f),OBSTACLE_TYPE_UPDOWNLOG },
+	{ D3DXVECTOR3(-1710.0f, -110.0f, 8840.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,2.0f,0.0f),OBSTACLE_TYPE_UPDOWNLOG },
+	{ D3DXVECTOR3(-1635.0f, 0.0f, 8765.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-1660.0f, 0.0f, 8790.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-1685.0f, 0.0f, 8815.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-1850.0f, 0.0f, 8700.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-1750.0f, 0.0f, 8600.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-1570.0, 0.0f, 8980.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-1470.0f, 0.0f, 8880.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+
+	/************************************/
+	/*			18コース目				*/
+	/************************************/
+	{ D3DXVECTOR3(-1000.0f, 0.0f, 9125.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-1000.0f, 0.0f, 9095.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-1000.0f, 0.0f, 9065.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-1150.0f, 0.0f, 9035.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-1150.0f, 0.0f, 9005.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-1150.0f, 0.0f, 8975.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-850.0f, 0.0f, 9035.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-850.0f, 0.0f, 9005.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-850.0f, 0.0f, 8975.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+
+	/************************************/
+	/*			21コース目				*/
+	/************************************/
+	{ D3DXVECTOR3(1010.0f, 0.0f, 9750.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(985.0f, 0.0f, 9775.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(935.0f, 0.0f, 9825.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(910.0f, 0.0f, 9850.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(1120.0f, 0.0f, 9910.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(1095.0f, 0.0f, 9935.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(1070.0f, 0.0f, 9960.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+
+	/************************************/
+	/*			22コース目				*/
+	/************************************/
+	{ D3DXVECTOR3(1625.0f, 0.0f, 10115.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 1.6f), OBSTACLE_TYPE_LOGMOVE },
+	{ D3DXVECTOR3(1775.0f, 0.0f, 10265.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, -1.6f), OBSTACLE_TYPE_LOGMOVE },
+	{ D3DXVECTOR3(1925.0f, 0.0f, 10115.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 1.6f), OBSTACLE_TYPE_LOGMOVE },
+
+	/************************************/
+	/*			23コース目				*/
+	/************************************/
+	{ D3DXVECTOR3(2400.0f, 0.0f, 10340.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(2375.0f, 0.0f, 10365.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(2325.0f, 0.0f, 10415.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(2300.0f, 0.0f, 10440.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(2460.0f, 0.0f, 10500.0f), D3DXVECTOR3(0.0f, D3DX_PI * -0.25f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_STAIRS_S },
+	{ D3DXVECTOR3(2480.0f, 0.0f, 10520.0f), D3DXVECTOR3(0.0f, D3DX_PI * -0.25f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_STAIRS_M },
+	{ D3DXVECTOR3(2500.0f, 0.0f, 10540.0f), D3DXVECTOR3(0.0f, D3DX_PI * -0.25f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_STAIRS_L },
+	{ D3DXVECTOR3(2520.0f, 0.0f, 10560.0f), D3DXVECTOR3(0.0f, D3DX_PI * -0.25f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_STAIRS_M },
+	{ D3DXVECTOR3(2540.0f, 0.0f, 10580.0f), D3DXVECTOR3(0.0f, D3DX_PI * -0.25f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_STAIRS_S },
+
+	/************************************/
+	/*			24コース目				*/
+	/************************************/
+	{ D3DXVECTOR3(2625.0f, 0.0f, 11350.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(2.0f,0.0f,0.0f),OBSTACLE_TYPE_HALFMOVE },
+
+	/************************************/
+	/*			25コース目				*/
+	/************************************/
+	{ D3DXVECTOR3(2425.0f, 0.0f, 11850.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_LOGFAT },
+
+	/************************************/
+	/*			26コース目				*/
+	/************************************/
+	{ D3DXVECTOR3(1800.0f, 0.0f, 12075.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_HALFSTAIRS_S },
+	{ D3DXVECTOR3(1830.0f, 0.0f, 12075.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_HALFSTAIRS_M },
+	{ D3DXVECTOR3(1860.0f, 0.0f, 12075.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_HALFSTAIRS_L },
+	{ D3DXVECTOR3(1890.0f, 0.0f, 12075.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_HALFSTAIRS_M },
+	{ D3DXVECTOR3(1920.0f, 0.0f, 12075.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_HALFSTAIRS_S },
+
+	{ D3DXVECTOR3(1580.0f, 0.0f, 12075.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_HALFSTAIRS_S },
+	{ D3DXVECTOR3(1610.0f, 0.0f, 12075.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_HALFSTAIRS_M },
+	{ D3DXVECTOR3(1640.0f, 0.0f, 12075.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_HALFSTAIRS_L },
+	{ D3DXVECTOR3(1670.0f, 0.0f, 12075.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_HALFSTAIRS_M },
+	{ D3DXVECTOR3(1700.0f, 0.0f, 12075.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_HALFSTAIRS_S },
+	{ D3DXVECTOR3(1975.0f, -25.0f, 12150.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_LOG_S },
+	{ D3DXVECTOR3(1925.0f, -25.0f, 12200.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_LOG_S },
+	{ D3DXVECTOR3(1875.0f, -25.0f, 12150.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_LOG_S },
+	{ D3DXVECTOR3(1825.0f, -25.0f, 12200.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_LOG_S },
+	{ D3DXVECTOR3(1775.0f, -25.0f, 12150.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_LOG_S },
+	{ D3DXVECTOR3(1725.0f, -25.0f, 12200.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_LOG_S },
+	{ D3DXVECTOR3(1675.0f, -25.0f, 12150.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_LOG_S },
+	{ D3DXVECTOR3(1625.0f, -25.0f, 12200.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_LOG_S },
+	{ D3DXVECTOR3(1575.0f, -25.0f, 12150.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_LOG_S },
+	{ D3DXVECTOR3(1525.0f, -25.0f, 12200.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_LOG_S },
+
+	/************************************/
+	/*			27コース目				*/
+	/************************************/
+	{ D3DXVECTOR3(1050.0f, 0.0f, 12545.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(1025.0f, 0.0f, 12520.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(975.0f, 0.0f, 12465.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(950.0f, 0.0f, 12440.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(1145.0f, 0.0f, 12345.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(1120.0f, 0.0f, 12320.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(1170.0f, 0.0f, 12370.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_LOG_M },
+
+	/************************************/
+	/*			29コース目				*/
+	/************************************/
+	{ D3DXVECTOR3(-225.0f, 0.0f, 12925.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-275.0f, 0.0f, 13025.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-325.0f, 0.0f, 12975.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-325.0f, 0.0f, 13125.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-375.0f, 0.0f, 13075.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-425.0f, 0.0f, 13025.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_LOG_M },
+
+	/************************************/
+	/*			30コース目				*/
+	/************************************/
+	{ D3DXVECTOR3(-960.0f, 0.0f, 13350.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_HALFSTAIRS_S },
+	{ D3DXVECTOR3(-930.0f, 0.0f, 13350.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_HALFSTAIRS_M },
+	{ D3DXVECTOR3(-900.0f, 0.0f, 13350.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_HALFSTAIRS_L },
+	{ D3DXVECTOR3(-870.0f, 0.0f, 13350.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_HALFSTAIRS_M },
+	{ D3DXVECTOR3(-840.0f, 0.0f, 13350.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_HALFSTAIRS_S },
+
+	{ D3DXVECTOR3(-1040.0f, 0.0f, 13350.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_HALFSTAIRS_S },
+	{ D3DXVECTOR3(-1070.0f, 0.0f, 13350.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_HALFSTAIRS_M },
+	{ D3DXVECTOR3(-1100.0f, 0.0f, 13350.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_HALFSTAIRS_L },
+	{ D3DXVECTOR3(-1130.0f, 0.0f, 13350.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_HALFSTAIRS_M },
+	{ D3DXVECTOR3(-1160.0f, 0.0f, 13350.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_HALFSTAIRS_S },
+
+	{ D3DXVECTOR3(-775.0f, -25.0f, 13275.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_LOG_S },
+	{ D3DXVECTOR3(-825.0f, -25.0f, 13225.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_LOG_S },
+	{ D3DXVECTOR3(-875.0f, -25.0f, 13275.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_LOG_S },
+	{ D3DXVECTOR3(-925.0f, -25.0f, 13225.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_LOG_S },
+	{ D3DXVECTOR3(-975.0f, -25.0f, 13275.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_LOG_S },
+	{ D3DXVECTOR3(-1025.0f, -25.0f, 13225.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_LOG_S },
+	{ D3DXVECTOR3(-1075.0f, -25.0f, 13275.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_LOG_S },
+	{ D3DXVECTOR3(-1125.0f, -25.0f, 13225.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_LOG_S },
+	{ D3DXVECTOR3(-1175.0f, -25.0f, 13275.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_LOG_S },
+	{ D3DXVECTOR3(-1225.0f, -25.0f, 13225.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_LOG_S },
+
+	/************************************/
+	/*			31コース目				*/
+	/************************************/
+	{ D3DXVECTOR3(-1725.0f, -15.0f, 13700.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, -2.0f, 0.0f), OBSTACLE_TYPE_UPDOWNLOG },
+	{ D3DXVECTOR3(-1800.0f, -15.0f, 13625.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, -2.0f, 0.0f), OBSTACLE_TYPE_UPDOWNLOG },
+	{ D3DXVECTOR3(-1675.0f, -110.0f, 13575.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 2.0f, 0.0f), OBSTACLE_TYPE_UPDOWNLOG },
+	{ D3DXVECTOR3(-1550.0f, -15.0f, 13525.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, -2.0f, 0.0f), OBSTACLE_TYPE_UPDOWNLOG },
+	{ D3DXVECTOR3(-1625.0f, -15.0f, 13450.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, -2.0f, 0.0f), OBSTACLE_TYPE_UPDOWNLOG },
+
+	/************************************/
+	/*			33コース目				*/
+	/************************************/
+	{ D3DXVECTOR3(-1350.0f, 0.0f, 14740.0f), D3DXVECTOR3(0.0f, D3DX_PI * -0.5f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_HALFSTAIRS_S },
+	{ D3DXVECTOR3(-1350.0f, 0.0f, 14770.0f), D3DXVECTOR3(0.0f, D3DX_PI * -0.5f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_HALFSTAIRS_M },
+	{ D3DXVECTOR3(-1350.0f, 0.0f, 14800.0f), D3DXVECTOR3(0.0f, D3DX_PI * -0.5f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_HALFSTAIRS_L },
+	{ D3DXVECTOR3(-1350.0f, 0.0f, 14830.0f), D3DXVECTOR3(0.0f, D3DX_PI * -0.5f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_HALFSTAIRS_M },
+	{ D3DXVECTOR3(-1350.0f, 0.0f, 14860.0f), D3DXVECTOR3(0.0f, D3DX_PI * -0.5f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_HALFSTAIRS_S },
+	{ D3DXVECTOR3(-1475.0f, 0.0f, 14850.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,1.7f),OBSTACLE_TYPE_HALFMOVE },
+	{ D3DXVECTOR3(-1475.0f, 0.0f, 14750.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,-1.8f),OBSTACLE_TYPE_HALFMOVE },
+
+	/************************************/
+	/*			34コース目				*/
+	/************************************/
+	{ D3DXVECTOR3(-1560.0f, 0.0f, 15360.0f), D3DXVECTOR3(0.0f, D3DX_PI * -0.75f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_STAIRS_S },
+	{ D3DXVECTOR3(-1580.0f, 0.0f, 15380.0f), D3DXVECTOR3(0.0f, D3DX_PI * -0.75f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_STAIRS_M },
+	{ D3DXVECTOR3(-1600.0f, 0.0f, 15400.0f), D3DXVECTOR3(0.0f, D3DX_PI * -0.75f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_STAIRS_L },
+	{ D3DXVECTOR3(-1620.0f, 0.0f, 15420.0f), D3DXVECTOR3(0.0f, D3DX_PI * -0.75f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_STAIRS_M },
+	{ D3DXVECTOR3(-1640.0f, 0.0f, 15440.0f), D3DXVECTOR3(0.0f, D3DX_PI * -0.75f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_STAIRS_S },
+	{ D3DXVECTOR3(-1725.0f, 0.0f, 15470.0f), D3DXVECTOR3(0.0f, D3DX_PI * -0.25f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-1675.0f, 0.0f, 15515.0f), D3DXVECTOR3(0.0f, D3DX_PI * -0.25f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-1800.0f, 0.0f, 15500.0f), D3DXVECTOR3(0.0f, D3DX_PI * -0.25f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-1750.0f, 0.0f, 15550.0f), D3DXVECTOR3(0.0f, D3DX_PI * -0.25f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-1700.0f, 0.0f, 15600.0f), D3DXVECTOR3(0.0f, D3DX_PI * -0.25f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_LOG_M },
+
+	/************************************/
+	/*			35コース目				*/
+	/************************************/
+	{ D3DXVECTOR3(-2150.0f, 0.0f, 15675.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,2.0f),OBSTACLE_TYPE_HALFMOVE },
+
+	/************************************/
+	/*			36コース目				*/
+	/************************************/
+	{ D3DXVECTOR3(-2900.0f, 0.0f, 15950.0f), D3DXVECTOR3(0.0f, D3DX_PI * -0.25f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-3025.0f, 0.0f, 16075.0f), D3DXVECTOR3(0.0f, D3DX_PI * -0.25f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-3150.0f, 0.0f, 16200.0f), D3DXVECTOR3(0.0f, D3DX_PI * -0.25f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_LOG_M },
+
+	{ D3DXVECTOR3(-3000.0f, 0.0f, 15850.0f), D3DXVECTOR3(0.0f, D3DX_PI * -0.25f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-3125.0f, 0.0f, 15975.0f), D3DXVECTOR3(0.0f, D3DX_PI * -0.25f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-3250.0f, 0.0f, 16100.0f), D3DXVECTOR3(0.0f, D3DX_PI * -0.25f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_LOG_M },
+
+	{ D3DXVECTOR3(-3100.0f, -15.0f, 16000.0f), D3DXVECTOR3(0.0f, D3DX_PI * -0.25f, 0.0f), D3DXVECTOR3(0.0f, -2.0f, 0.0f), OBSTACLE_TYPE_UPDOWNLOG },
+	{ D3DXVECTOR3(-3075.0f, -110.0f, 16025.0f), D3DXVECTOR3(0.0f, D3DX_PI * -0.25f, 0.0f), D3DXVECTOR3(0.0f, 2.0f, 0.0f), OBSTACLE_TYPE_UPDOWNLOG },
+	{ D3DXVECTOR3(-3050.0f, -15.0f, 16050.0f), D3DXVECTOR3(0.0f, D3DX_PI * -0.25f, 0.0f), D3DXVECTOR3(0.0f, -2.0f, 0.0f), OBSTACLE_TYPE_UPDOWNLOG },
+	/************************************/
+	/*			37コース目				*/
+	/************************************/
+	{ D3DXVECTOR3(-3420.0f, 0.0f, 16550.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_ROLL_LEFT },
+	{ D3DXVECTOR3(-3300.0f, 0.0f, 16800.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_ROLL_RIGHT },
+
+	/************************************/
+	/*			38コース目				*/
+	/************************************/
+	{ D3DXVECTOR3(-3105.0f, 0.0f, 17455.0f),D3DXVECTOR3(0.0f,D3DX_PI * 0.25,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_S },
+	{ D3DXVECTOR3(-3085.0f, 0.0f, 17435.0f),D3DXVECTOR3(0.0f,D3DX_PI * 0.25,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_S },
+	{ D3DXVECTOR3(-3065.0f, 0.0f, 17415.0f),D3DXVECTOR3(0.0f,D3DX_PI * 0.25,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_S },
+	{ D3DXVECTOR3(-3045.0f, 0.0f, 17395.0f),D3DXVECTOR3(0.0f,D3DX_PI * 0.25,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_S },
+	{ D3DXVECTOR3(-3025.0f, 0.0f, 17375.0f),D3DXVECTOR3(0.0f,D3DX_PI * 0.25,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_S },
+	{ D3DXVECTOR3(-3005.0f, 0.0f, 17355.0f),D3DXVECTOR3(0.0f,D3DX_PI * 0.25,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_S },
+
+	{ D3DXVECTOR3(-3085.0f, 0.0f, 17475.0f),D3DXVECTOR3(0.0f,D3DX_PI * 0.25,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-3065.0f, 0.0f, 17455.0f),D3DXVECTOR3(0.0f,D3DX_PI * 0.25,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-3045.0f, 0.0f, 17435.0f),D3DXVECTOR3(0.0f,D3DX_PI * 0.25,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-3025.0f, 0.0f, 17415.0f),D3DXVECTOR3(0.0f,D3DX_PI * 0.25,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-3005.0f, 0.0f, 17395.0f),D3DXVECTOR3(0.0f,D3DX_PI * 0.25,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-2985.0f, 0.0f, 17375.0f),D3DXVECTOR3(0.0f,D3DX_PI * 0.25,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+
+	{ D3DXVECTOR3(-3065.0f, 0.0f, 17495.0f),D3DXVECTOR3(0.0f,D3DX_PI * 0.25,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_L },
+	{ D3DXVECTOR3(-3045.0f, 0.0f, 17475.0f),D3DXVECTOR3(0.0f,D3DX_PI * 0.25,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_L },
+	{ D3DXVECTOR3(-3025.0f, 0.0f, 17455.0f),D3DXVECTOR3(0.0f,D3DX_PI * 0.25,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_L },
+	{ D3DXVECTOR3(-3005.0f, 0.0f, 17435.0f),D3DXVECTOR3(0.0f,D3DX_PI * 0.25,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_L },
+	{ D3DXVECTOR3(-2985.0f, 0.0f, 17415.0f),D3DXVECTOR3(0.0f,D3DX_PI * 0.25,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_L },
+	{ D3DXVECTOR3(-2965.0f, 0.0f, 17395.0f),D3DXVECTOR3(0.0f,D3DX_PI * 0.25,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_L },
+
+	{ D3DXVECTOR3(-3045.0f, 0.0f, 17515.0f),D3DXVECTOR3(0.0f,D3DX_PI * 0.25,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-3025.0f, 0.0f, 17495.0f),D3DXVECTOR3(0.0f,D3DX_PI * 0.25,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-3005.0f, 0.0f, 17475.0f),D3DXVECTOR3(0.0f,D3DX_PI * 0.25,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-2985.0f, 0.0f, 17455.0f),D3DXVECTOR3(0.0f,D3DX_PI * 0.25,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-2965.0f, 0.0f, 17435.0f),D3DXVECTOR3(0.0f,D3DX_PI * 0.25,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-2945.0f, 0.0f, 17415.0f),D3DXVECTOR3(0.0f,D3DX_PI * 0.25,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+
+	{ D3DXVECTOR3(-3025.0f, 0.0f, 17535.0f),D3DXVECTOR3(0.0f,D3DX_PI * 0.25,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_S },
+	{ D3DXVECTOR3(-3005.0f, 0.0f, 17515.0f),D3DXVECTOR3(0.0f,D3DX_PI * 0.25,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_S },
+	{ D3DXVECTOR3(-2985.0f, 0.0f, 17495.0f),D3DXVECTOR3(0.0f,D3DX_PI * 0.25,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_S },
+	{ D3DXVECTOR3(-2965.0f, 0.0f, 17475.0f),D3DXVECTOR3(0.0f,D3DX_PI * 0.25,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_S },
+	{ D3DXVECTOR3(-2945.0f, 0.0f, 17455.0f),D3DXVECTOR3(0.0f,D3DX_PI * 0.25,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_S },
+	{ D3DXVECTOR3(-2925.0f, 0.0f, 17435.0f),D3DXVECTOR3(0.0f,D3DX_PI * 0.25,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_S },
+
+	{ D3DXVECTOR3(-3230.0f, 0.0f, 17330.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-3210.0f, 0.0f, 17310.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-3150.0f, 0.0f, 17250.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-3130.0f, 0.0f, 17230.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+
+	/************************************/
+	/*			39コース目				*/
+	/************************************/
+	{ D3DXVECTOR3(-2700.0f, -110.0f, 18075.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 2.0f, 0.0f), OBSTACLE_TYPE_UPDOWNLOG },
+	{ D3DXVECTOR3(-2800.0f, -15.0f, 18075.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, -2.0f, 0.0f), OBSTACLE_TYPE_UPDOWNLOG },
+	{ D3DXVECTOR3(-2900.0f, -110.0f, 18075.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 2.0f, 0.0f), OBSTACLE_TYPE_UPDOWNLOG },
+
+	/************************************/
+	/*			40コース目				*/
+	/************************************/
+	{ D3DXVECTOR3(-2650.0f, 0.0f, 18700.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-2600.0f, -0.0f, 18650.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, -0.0f, 0.0f), OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-2350.0f, -0.0f, 18900.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-2400.0f, -0.0f, 18950.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-2525.0f, -0.0f, 18875.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-2475.0f, -0.0f, 18825.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-2425.0f, -0.0f, 18775.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_LOG_M },
+
+	/************************************/
+	/*			41コース目				*/
+	/************************************/
+	{ D3DXVECTOR3(-1840.0f, 0.0f, 19100.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(-2.0f, 0.0f, 0.0f), OBSTACLE_TYPE_HALFMOVE },
+	{ D3DXVECTOR3(-1750.0f, 0.0f, 19100.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_ROLL_LEFT },
+
+	/************************************/
+	/*			42コース目				*/
+	/************************************/
+	{ D3DXVECTOR3(-975.0f, 0.0f, 19425.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-995.0f, 0.0f, 19445.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-1055.0f, 0.0f, 19505.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-1075.0f, 0.0f, 19525.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-1150.0f, 0.0f, 19325.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-1170.0f, 0.0f, 19345.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_LOG_M },
+
+	/************************************/
+	/*			43コース目				*/
+	/************************************/
+	{ D3DXVECTOR3(-875.0f, 0.0f, 19925.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(1.5f, 0.0f, 0.0f), OBSTACLE_TYPE_LOGMOVE },
+	{ D3DXVECTOR3(-725.0f, 0.0f, 20025.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(-1.5f, 0.0f, 0.0f), OBSTACLE_TYPE_LOGMOVE },
+	{ D3DXVECTOR3(-875.0f, 0.0f, 20125.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(1.5f, 0.0f, 0.0f), OBSTACLE_TYPE_LOGMOVE },
+	{ D3DXVECTOR3(-725.0f, 0.0f, 20225.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(-1.5f, 0.0f, 0.0f), OBSTACLE_TYPE_LOGMOVE },
+	{ D3DXVECTOR3(-875.0f, 0.0f, 20325.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(1.5f, 0.0f, 0.0f), OBSTACLE_TYPE_LOGMOVE },
+
+	/************************************/
+	/*			44コース目				*/
+	/************************************/
+	{ D3DXVECTOR3(-550.0f, 0.0f, 20800.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_ROLL_LEFT },
+
+
+	/************************************/
+	/*			45コース目				*/
+	/************************************/
+	{ D3DXVECTOR3(-140.0f, 0.0f, 21375.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f),OBSTACLE_TYPE_ROLL_RIGHT },
+	{ D3DXVECTOR3(-125.0f, 0.0f, 21500.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-200.0f, 0.0f, 21500.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-275.0f, 0.0f, 21500.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-235.0f, 0.0f, 21600.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-160.0f, 0.0f, 21600.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-125.0f, 0.0f, 21700.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-200.0f, 0.0f, 21700.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-275.0f, 0.0f, 21700.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), D3DXVECTOR3(0.0f, 0.0f, 0.0f), OBSTACLE_TYPE_LOG_M },
+
+	/************************************/
+	/*			47コース目				*/
+	/************************************/
+	{ D3DXVECTOR3(-800.0f, 0.0f, 23300.0f),D3DXVECTOR3(0.0f,D3DX_PI * -0.25f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_BASE },
+
+	{ D3DXVECTOR3(-820.0f, 0.0f, 23100.0f),D3DXVECTOR3(0.0f,D3DX_PI * -0.25f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_L },
+	{ D3DXVECTOR3(-790.0f, 0.0f, 23100.0f),D3DXVECTOR3(0.0f,D3DX_PI * -0.25f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_L },
+	{ D3DXVECTOR3(-820.0f, 0.0f, 23070.0f),D3DXVECTOR3(0.0f,D3DX_PI * -0.25f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_L },
+	{ D3DXVECTOR3(-790.0f, 0.0f, 23070.0f),D3DXVECTOR3(0.0f,D3DX_PI * -0.25f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_L },
+	{ D3DXVECTOR3(-820.0f, 0.0f, 23000.0f),D3DXVECTOR3(0.0f,D3DX_PI * -0.25f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-790.0f, 0.0f, 23000.0f),D3DXVECTOR3(0.0f,D3DX_PI * -0.25f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-820.0f, 0.0f, 22975.0f),D3DXVECTOR3(0.0f,D3DX_PI * -0.25f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-790.0f, 0.0f, 22975.0f),D3DXVECTOR3(0.0f,D3DX_PI * -0.25f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_M },
+	{ D3DXVECTOR3(-820.0f, 0.0f, 22900.0f),D3DXVECTOR3(0.0f,D3DX_PI * -0.25f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_S },
+	{ D3DXVECTOR3(-790.0f, 0.0f, 22900.0f),D3DXVECTOR3(0.0f,D3DX_PI * -0.25f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_S },
+	{ D3DXVECTOR3(-820.0f, 0.0f, 22875.0f),D3DXVECTOR3(0.0f,D3DX_PI * -0.25f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_S },
+	{ D3DXVECTOR3(-790.0f, 0.0f, 22875.0f),D3DXVECTOR3(0.0f,D3DX_PI * -0.25f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),OBSTACLE_TYPE_LOG_S },
+
+	{ D3DXVECTOR3(-850.0f, 0.0f, 22700.0f),D3DXVECTOR3(0.0f,D3DX_PI * -0.25f,0.0f),D3DXVECTOR3(1.0f,0.0f,0.0f),OBSTACLE_TYPE_LOGMOVE },
+
+};
+
+//=============================================================================
+//背景の木の設置
+//=============================================================================
+WOODBG_INFO g_WoodBGInfo[] =
+{
+	{ D3DXVECTOR3(0.0f, -500.0f, 0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),WOODBG_TYPE_PALM },
+	{ D3DXVECTOR3(-500.0f, -500.0f, 1850.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),WOODBG_TYPE_PALM },
+	{ D3DXVECTOR3(-300.0f, -500.0f, 3700.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),WOODBG_TYPE_PALM },
+	{ D3DXVECTOR3(-800.0f, -500.0f, 5550.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),WOODBG_TYPE_PALM },
+	{ D3DXVECTOR3(-1500.0f, -500.0f, 7400.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),WOODBG_TYPE_PALM },
+	{ D3DXVECTOR3(-300.0f, -500.0f, 9250.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),WOODBG_TYPE_PALM },
+	{ D3DXVECTOR3(1500.0f, -500.0f, 9250.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),WOODBG_TYPE_PALM },
+	{ D3DXVECTOR3(1800.0f, -500.0f, 11100.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),WOODBG_TYPE_PALM },
+	//{ D3DXVECTOR3(-300.0f, -500.0f, 11100.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),WOODBG_TYPE_PALM },
+	{ D3DXVECTOR3(-1800.0f, -500.0f, 12950.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),WOODBG_TYPE_PALM },
+	{ D3DXVECTOR3(300.0f, -500.0f, 12950.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),WOODBG_TYPE_PALM },
+	{ D3DXVECTOR3(-2450.0f, -500.0f, 14800.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),WOODBG_TYPE_PALM },
+	{ D3DXVECTOR3(-2500.0f, -500.0f, 16650.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),WOODBG_TYPE_PALM },
+	{ D3DXVECTOR3(-1800.0f, -500.0f, 18500.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),WOODBG_TYPE_PALM },
+	{ D3DXVECTOR3(-1000.0f, -500.0f, 20350.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),WOODBG_TYPE_PALM },
+	{ D3DXVECTOR3(-1000.0f, -500.0f, 22200.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),WOODBG_TYPE_PALM },
+	{ D3DXVECTOR3(-1000.0f, -500.0f, 24050.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),WOODBG_TYPE_PALM },
+	{ D3DXVECTOR3(1400.0f, -500.0f, 2300.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),WOODBG_TYPE_LAKE },
+	{ D3DXVECTOR3(600.0f, -500.0f, 7500.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),WOODBG_TYPE_LAKE },
+	{ D3DXVECTOR3(-2700.0f, -500.0f, 6700.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),WOODBG_TYPE_LAKE },
+	{ D3DXVECTOR3(1400.0f, -500.0f, 9000.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),WOODBG_TYPE_LAKE },
+	{ D3DXVECTOR3(-2500.0f, -500.0f, 9500.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),WOODBG_TYPE_LAKE },
+	{ D3DXVECTOR3(0.0f, -500.0f, 12000.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),WOODBG_TYPE_LAKE },
+	{ D3DXVECTOR3(2500.0f, -500.0f, 13000.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),WOODBG_TYPE_LAKE },
+	{ D3DXVECTOR3(0.0f, -500.0f, 15000.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),WOODBG_TYPE_LAKE },
+	{ D3DXVECTOR3(-4200.0f, -500.0f, 18000.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),WOODBG_TYPE_LAKE },
+	{ D3DXVECTOR3(800.0f, -500.0f, 20000.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),WOODBG_TYPE_LAKE },
+
+};
+
+//=============================================================================
+//背景の木の設置
+//=============================================================================
+BILLBOARD_INFO g_BillboardInfo[] =
+{
+	{ D3DXVECTOR3(-580.0f, 250.0f, 6700.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),D3DXVECTOR3(0.0f,0.0f,0.0f),50.0f,200.0f },
+};
+
+
+//=============================================================================
+// ゲーム画面初期化処理
+//=============================================================================
+void InitGame(void)
+{
+	// カメラの初期化処理
+	InitCamera();
+
+	// ライトの初期化処理
+	InitLight();
+
+	// 影の初期化処理
+	InitShadow();
+
+	// ポーズ初期化処理
+	InitPause();
+
+	// ポーズロゴ初期化処理
+	InitPauseLogo();
+
+	// ポーズ項目初期化処理
+	InitPauseSelect();
+
+	// プレイヤーの初期化処理
+	InitPlayer();
+
+	// マスの初期化処理
+	InitMasu();
+
+	//メッシュフィールドの初期化処理
+	InitMeshField();
+
+	// コースの初期化処理
+	InitCourse();
+
+	//障害物の初期化処理
+	InitObstacle();
+
+	//背景の木
+	InitWoodBG();
+
+	//壁の初期化処理
+	InitWall();
+
+	// ビルボードの初期化処理
+	InitBillboard();
+
+	// エフェクトの初期化処理
+	InitEffect();
+
+	// パーティクルの初期化処理
+	InitParticle();
+
+	//サイコロの初期化処理
+	InitDice();
+
+	//タイマーの初期化処理
+	InitTimer();
+
+	//メーターの初期化処理
+	InitMeter();
+
+	//カウントダウンの初期化処理
+	InitCountDown();
+
+	//空の初期化処理
+	InitSky();
+
+	//オービットの初期化処理
+	InitOrbit();
+
+	//フォントの初期化処理
+	InitFont();
+
+	//順位の初期化処理
+	InitRank();
+
+	//順位のフレームの初期化処理
+	InitFrame();
+
+	//ターン数の初期化処理
+	InitTurnNum();
+
+	SetDice(1);
+
+	// マスの設置
+	for (int nCntMasu = 0; nCntMasu < sizeof g_aMasuInfo / sizeof(MasuInfo); nCntMasu++)
+	{
+		SetMasu(g_aMasuInfo[nCntMasu].pos, g_aMasuInfo[nCntMasu].masuType);
+	}
+
+	// コースの設置
+	for (int nCntCourse = 0; nCntCourse < sizeof g_aCourseInfo / sizeof(CourseInfo); nCntCourse++)
+	{
+		SetCourse(g_aCourseInfo[nCntCourse].pos, g_aCourseInfo[nCntCourse].rot, g_aCourseInfo[nCntCourse].fWidth, g_aCourseInfo[nCntCourse].fHeight);
+	}
+
+	//　障害物の設置
+	for (int nCntObstacle = 0; nCntObstacle < sizeof g_ObstacleInfo / sizeof(OBSTACLE_INFO); nCntObstacle++)
+	{
+		SetObstacle(g_ObstacleInfo[nCntObstacle].pos, g_ObstacleInfo[nCntObstacle].rot, g_ObstacleInfo[nCntObstacle].move, g_ObstacleInfo[nCntObstacle].nType);
+	}
+
+	//　背景の木の設置
+	for (int nCntWoodBG = 0; nCntWoodBG < sizeof g_WoodBGInfo / sizeof(WOODBG_INFO); nCntWoodBG++)
+	{
+		SetWoodBG(g_WoodBGInfo[nCntWoodBG].pos, g_WoodBGInfo[nCntWoodBG].rot, g_WoodBGInfo[nCntWoodBG].move, g_WoodBGInfo[nCntWoodBG].nType);
+	}
+
+	//　蔦の設置
+	for (int nCntBillBoard = 0; nCntBillBoard < sizeof g_BillboardInfo / sizeof(BILLBOARD_INFO); nCntBillBoard++)
+	{
+		SetBillboard(g_BillboardInfo[nCntBillBoard].pos, g_BillboardInfo[nCntBillBoard].move, g_BillboardInfo[nCntBillBoard].rot, g_BillboardInfo[nCntBillBoard].fWidth, g_BillboardInfo[nCntBillBoard].fHeight);
+	}
+
+	// 壁の設置
+	for (int nCntWall = 0; nCntWall < (sizeof g_WallInfo / sizeof(WallInfo)); nCntWall++)
+	{
+		SetWall(g_WallInfo[nCntWall].pos, g_WallInfo[nCntWall].rot, g_WallInfo[nCntWall].type, g_WallInfo[nCntWall].fwidth, g_WallInfo[nCntWall].fHaight);
+	}
+
+	g_GameState = GAMESTATE_NORMAL;
+	g_TurnState = TURNSTATE_DICE;
+	SetTurnState(g_TurnState);
+	g_nCounterGameState = 0;
+	g_bPuase = false;
+}
+//=============================================================================
+// ゲーム画面終了処理
+//=============================================================================
+void UninitGame(void)
+{
+	// カメラの終了処理
+	UninitCamera();
+
+	// ライトの終了処理
+	UninitLight();
+
+	// ポーズ終了処理
+	UninitPause();
+
+	// ポーズロゴ終了処理
+	UninitPauseLogo();
+
+	// ポーズ項目終了処理
+	UninitPauseSelect();
+
+	// プレイヤーの終了処理
+	UninitPlayer();
+
+	// マスの終了処理
+	UninitMasu();
+
+	//メッシュフィールドの終了処理
+	UninitMeshField();
+
+	// コースの終了処理
+	UninitCourse();
+
+	//障害物の終了処理
+	UninitObstacle();
+
+	//背景の木の終了処理
+	UninitWoodBG();
+
+	// 壁の終了処理
+	UninitWall();
+
+	// ビルボードの終了処理
+	UninitBillboard();
+
+	// エフェクトの終了処理
+	UninitEffect();
+
+	// パーティクルの終了処理
+	UninitParticle();
+
+	//サイコロの終了処理
+	UninitDice();
+
+	//タイマーの終了処理
+	UninitTimer();
+
+	//メーターの終了処理
+	UninitMeter();
+
+	//カウントダウンの終了処理
+	UninitCountDown();
+
+	//空の終了処理
+	UninitSky();
+
+	//オービットの終了処理
+	UninitOrbit();
+
+	//フォントの終了処理
+	UninitFont();
+
+	//順位の終了処理
+	UninitRank();
+
+	//順位のフレームの終了処理
+	UninitFrame();
+
+	//ターン数の終了処理
+	UninitTurnNum();
+
+	// 影の初期化処理
+	UninitShadow();
+}
+//=============================================================================
+// ゲーム画面更新処理
+//=============================================================================
+void UpdateGame(void)
+{
+	FADE fade;
+	fade = GetFade();
+
+	if (GetJoyPadTrigger(DIJS_BUTTON_9, 0) == TRUE && fade == FADE_NONE && g_GameState == GAMESTATE_NORMAL || GetKeyboardTrigger(DIK_P) == true && fade == FADE_NONE && g_GameState == GAMESTATE_NORMAL)
+	{// ポーズON/OFF
+		g_bPuase = g_bPuase ? false : true;
+		PlaySound(SOUND_LABEL_SE012);
+	}
+
+	if (g_bPuase == false)
+	{// ポーズOFF
+	 // カメラの更新処理
+		UpdateCamera();
+
+		// ライトの更新処理
+		UpdateLight();
+
+		// プレイヤーの更新処理
+		UpdatePlayer();
+
+		// マスの更新処理
+		UpdateMasu();
+
+		//メッシュフィールドの更新処理
+		UpdateMeshField();
+
+		// コースの更新処理
+		UpdateCourse();
+
+		// 障害物の更新処理
+		UpdateObstacle();
+
+		//背景の木の更新処理
+		UpdateWoodBG();
+
+		// 壁の更新処理
+		UpdateWall();
+
+		//サイコロの更新処理
+		UpdateDice();
+
+		//メーターの更新処理
+		UpdateMeter();
+
+		//タイマーの更新処理
+		UpdateTimer();
+
+		//カウントダウンの更新処理
+		UpdateCountDown();
+
+		// ビルボードの更新処理
+		UpdateBillboard();
+
+		// エフェクトの更新処理
+		UpdateEffect();
+
+		// パーティクルの更新処理
+		UpdateParticle();
+
+		//空の更新処理
+		UpdateSky();
+
+		//オービットの更新処理
+		UpdateOrbit();
+
+		//フォントの更新処理
+		UpdateFont();
+
+		//順位の更新処理
+		UpdateRank();
+
+		//順位のフレームの更新処理
+		UpdateFrame();
+
+		//ターン数の更新処理
+		UpdateTurnNum();
+
+		// 影の更新処理
+		UpdateShadow();
+
+		if (GetKeyboardTrigger(DIK_F8) == true || GetJoyPadTrigger(DIJS_BUTTON_3, GetIdxPlayer()) == TRUE)
+		{
+			if (g_TurnState == TURNSTATE_DICE)
+			{
+				SetTurnState(TURNSTATE_MAP);
+			}
+			else if (g_TurnState == TURNSTATE_MAP)
+			{
+				SetTurnState(TURNSTATE_DICE);
+			}
+			else
+			{
+
+			}
+		}
+
+
+//#ifdef _DEBUG/
+		//if (GetKeyboardTrigger(DIK_RETURN) && g_GameState == GAMESTATE_NORMAL)
+		//{// デバック用
+		//	g_GameState = GAMESTATE_END;
+		//}
+//#endif
+
+		switch (g_GameState)
+		{
+		case GAMESTATE_NORMAL:  // 通常状態
+			break;
+
+		case GAMESTATE_RETRY:   // やり直し状態
+			g_nCounterGameState++;
+			if (g_nCounterGameState >= 120)
+			{// 一定時間たったら
+				g_GameState = GAMESTATE_NONE_RETRY;
+				SetFade(MODE_GAME);
+			}
+			break;
+
+		case GAMESTATE_CLEAR:     //終了状態
+			g_nCounterGameState++;
+			if (g_nCounterGameState >= 120)
+			{// 一定時間たったら
+				g_GameState = GAMESTATE_NONE;
+				SetFade(MODE_CLEAR);
+				SetHighScore(GetTurnNum());
+			}
+			break;
+		case GAMESTATE_OVER:     //終了状態
+			g_nCounterGameState++;
+			if (g_nCounterGameState >= 120)
+			{// 一定時間たったら
+				g_GameState = GAMESTATE_NONE;
+				SetFade(MODE_OVER);
+			}
+			break;
+		}
+	}
+	else
+	{
+		// ポーズ更新処理
+		UpdatePause();
+
+		// ポーズロゴ更新処理
+		UpdatePauseLogo();
+
+		// ポーズ項目更新処理
+		UpdatePauseSelect();
+
+		if (GetJoyPadTrigger(DIJS_BUTTON_2, 0) == TRUE || GetKeyboardTrigger(DIK_RETURN) == true)
+		{// 決定ボタンが押された
+			RESTART restart;
+			restart = GetRestart();
+			FADE fade;
+			fade = GetFade();
+			PlaySound(SOUND_LABEL_SE000);
+			if (fade == FADE_NONE)
+			{// フェード状態でない
+				switch (restart)
+				{
+				case RESTART_CONTINUE:  // ゲーム再開
+					break;
+				case RESTART_QUIT:      // タイトル遷移
+					g_GameState = GAMESTATE_NONE;
+					SetFade(MODE_TITLE);
+					return; // これ以上ゲームはUpdateしない
+					break;
+				}
+				g_bPuase = g_bPuase ? false : true; // ポーズは解除
+			}
+		}
+	}
+}
+//=============================================================================
+// ゲーム画面描画処理
+//=============================================================================
+void DrawGame(void)
+{
+	LPDIRECT3DDEVICE9 pDevice = GetDevice();	// デバイスの取得
+
+	// カメラの設定
+	SetCamera();
+
+	//空の描画処理
+	DrawSky();
+
+	// プレイヤーの描画処理
+	DrawPlayer();
+
+	// マスの描画処理
+	DrawMasu();
+
+	//メッシュフィールドの描画処理
+	DrawMeshField();
+
+	// コースの描画処理
+	DrawCourse();
+
+	//障害物の描画処理
+	DrawObstacle();
+
+	//背景の木の描画処理
+	DrawWoodBG();
+
+	// 壁の描画処理
+	DrawWall();
+
+	// ビルボードの描画処理
+	DrawBillboard();
+
+	// エフェクトの描画処理
+	DrawEffect();
+
+	// パーティクルの描画処理
+	DrawParticle();
+
+	//オービットの描画処理
+	DrawOrbit();
+
+	//フォントの描画処理
+	DrawFont();
+
+	//順位のフレームの描画処理
+	DrawFrame();
+
+	//順位の描画処理
+	DrawRank();
+
+	//ターン数の描画処理
+	DrawTurnNum();
+
+	// 影の更新処理
+	DrawShadow();
+
+	//カメラの再設定
+	SetCamera();
+
+	//Ｚバッファのクリア
+	pDevice->Clear(0, NULL, (D3DCLEAR_ZBUFFER), D3DCOLOR_RGBA(0, 0, 0, 0), 1.0f, 0);
+
+	//サイコロの描画処理
+	DrawDice();
+
+	//タイマーの描画処理
+	DrawTimer();
+	//メーターの描画処理
+	DrawMeter();
+	//カウントダウンの描画処理
+	DrawCountDown();
+
+	if (g_bPuase == true)
+	{// ポーズ中なら
+	 // ポーズ描画処理
+		DrawPause();
+
+		// ポーズロゴ描画処理
+		DrawPauseLogo();
+
+		// ポーズ項目描画処理
+		DrawPauseSelect();
+	}
+}
+//=============================================================================
+// ゲーム画面設定処理
+//=============================================================================
+void SetGameState(GAMESTATE state)
+{
+	if (g_GameState != state)
+	{
+		g_GameState = state;
+		g_nCounterGameState = 0;
+	}
+}
+//=============================================================================
+// ゲーム画面取得処理
+//=============================================================================
+GAMESTATE GetGameState(void)
+{
+	return g_GameState;
+}
+
+//=============================================================================
+// ターン管理処理
+//=============================================================================
+void SetTurnState(TURNSTATE Tstate)
+{
+	switch (g_TurnState)		//前のターンの終了処理を行う
+	{
+	case TURNSTATE_NONE:
+		break;
+	case TURNSTATE_DICE:
+		break;
+	case TURNSTATE_MAP:
+		SetDice(1);
+		break;
+	case TURNSTATE_COUNTDOWN:
+		DeleteDice(1);
+		break;
+	case TURNSTATE_MOVEandATTACK:
+		SetPlayerMoveFlag(false);
+		break;
+	case TURNSTATE_ABILITY:
+		break;
+	case TURNSTATE_END:
+		break;
+
+	}
+
+	switch (Tstate)				//現在のターンの開始処理を行う
+	{
+	case TURNSTATE_NONE:
+		break;
+	case TURNSTATE_DICE:
+		SetDice(1);
+		break;
+	case TURNSTATE_MAP:
+		DeleteDice(1);
+		break;
+	case TURNSTATE_COUNTDOWN:
+		SetCountDown();
+		break;
+	case TURNSTATE_MOVEandATTACK:
+		SetPlayerMoveFlag(true);
+		break;
+	case TURNSTATE_ABILITY:
+		break;
+	case TURNSTATE_END:
+		int nIdxPlayer;
+		nIdxPlayer = GetIdxPlayer();
+		PlayerChange(nIdxPlayer);
+		break;
+	}
+
+
+	g_TurnState = Tstate;	//ターンの状態を更新
+}
+//=============================================================================
+// ターン取得処理
+//=============================================================================
+TURNSTATE GetTurnState(void)
+{
+	return g_TurnState;
+}

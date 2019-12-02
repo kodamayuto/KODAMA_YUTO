@@ -158,28 +158,9 @@ void CSceneX::Draw(void)
 	D3DMATERIAL9 matDef;		//現在のマテリアル保存用
 	D3DXMATERIAL *pMat;			//マテリアルデータのポインタ
 
-	// ワールドマトリックスの初期化
-	D3DXMatrixIdentity(&m_mtxWorld);
+	//マトリックスの計算
+	CUtilityMath::CalWorldMatrix(&m_mtxWorld, m_pos, m_rot);
 
-	// 回転を反映
-	D3DXMatrixRotationYawPitchRoll(&mtxRot,
-		m_rot.y,
-		m_rot.x,
-		m_rot.z);
-
-	D3DXMatrixMultiply(&m_mtxWorld,
-		&m_mtxWorld,
-		&mtxRot);
-
-	// 位置を反映
-	D3DXMatrixTranslation(&mtxTrans,
-		m_pos.x,
-		m_pos.y,
-		m_pos.z);
-
-	D3DXMatrixMultiply(&m_mtxWorld,
-		&m_mtxWorld,
-		&mtxTrans);
 	// ワールドマトリックスの設定
 	pDevice->SetTransform(D3DTS_WORLD, &m_mtxWorld);
 

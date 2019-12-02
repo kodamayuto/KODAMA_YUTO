@@ -18,6 +18,8 @@
 #include "Command.h"
 #include "sound.h"
 #include "InputXPad.h"
+
+#include "UtilityMath.h"
 class CTitle;
 class CTutorial;
 class CGame;

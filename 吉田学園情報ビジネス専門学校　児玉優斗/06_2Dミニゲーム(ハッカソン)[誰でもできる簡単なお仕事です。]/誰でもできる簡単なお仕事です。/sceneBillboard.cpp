@@ -31,19 +31,9 @@ void CSceneBillboard::BindTexture(LPCSTR TexTag)
 //==================================================================
 void CSceneBillboard::Set(D3DXVECTOR3 pos, LPCSTR TexTag, D3DXVECTOR2 Size)
 {
-	CRenderer *pRenderer = CManager::GetRenderer();
-	LPDIRECT3DDEVICE9 pDevice = pRenderer->GetDevice();
-
 	m_pos = pos;
 	m_Size = Size;
 	BindTexture(TexTag);
-
-	pDevice->CreateVertexBuffer(sizeof(VERTEX_3D) * 4,
-		D3DUSAGE_WRITEONLY,
-		FVF_VERTEX_3D,
-		D3DPOOL_MANAGED,
-		&m_pVtxBuff,
-		NULL);
 
 	//変数宣言
 	VERTEX_3D *pVtx;	//頂点情報へのポインタ
@@ -80,6 +70,19 @@ void CSceneBillboard::Set(D3DXVECTOR3 pos, LPCSTR TexTag, D3DXVECTOR2 Size)
 //==================================================================
 HRESULT CSceneBillboard::Init(void)
 {
+	CRenderer *pRenderer = CManager::GetRenderer();
+	LPDIRECT3DDEVICE9 pDevice = pRenderer->GetDevice();
+
+	pDevice->CreateVertexBuffer(sizeof(VERTEX_3D) * 4,
+		D3DUSAGE_WRITEONLY,
+		FVF_VERTEX_3D,
+		D3DPOOL_MANAGED,
+		&m_pVtxBuff,
+		NULL);
+
+	m_pos = D3DXVECTOR3(0.0f,0.0f,0.0f);
+	m_rot = D3DXVECTOR3(0.0f, 0.0f, 0.0f);
+	m_Size = D3DXVECTOR2(0.0f,0.0f);
 	return S_OK;
 }
 
@@ -129,29 +132,8 @@ void CSceneBillboard::Draw(void)
 	// ライティングモードを無効化
 	pDevice->SetRenderState(D3DRS_LIGHTING, FALSE);
 
-	D3DXMatrixIdentity(&m_mtxWorld);
-
-	pDevice->GetTransform(D3DTS_VIEW, &mtxView);
-
-	m_mtxWorld._11 = mtxView._11;
-	m_mtxWorld._12 = mtxView._21;
-	m_mtxWorld._13 = mtxView._31;
-	m_mtxWorld._21 = mtxView._12;
-	m_mtxWorld._22 = mtxView._22;
-	m_mtxWorld._23 = mtxView._32;
-	m_mtxWorld._31 = mtxView._13;
-	m_mtxWorld._32 = mtxView._23;
-	m_mtxWorld._33 = mtxView._33;
-
-	// 位置を反映
-	D3DXMatrixTranslation(&mtxTrans,
-		m_pos.x,
-		m_pos.y,
-		m_pos.z);
-
-	D3DXMatrixMultiply(&m_mtxWorld,
-		&m_mtxWorld,
-		&mtxTrans);
+	//マトリックスの計算
+	CUtilityMath::CalWorldMatrix(&m_mtxWorld, m_pos, m_rot,NULL,D3DXVECTOR3(1.0f,1.0f,1.0f), &mtxView);
 
 	// ワールドマトリックスの設定
 	pDevice->SetTransform(D3DTS_WORLD, &m_mtxWorld);

@@ -70,7 +70,7 @@ HRESULT CManager::Init(HINSTANCE hInstance,HWND hWnd)
 	if (m_pRenderer != NULL)
 	{
 		// 初期化処理(ウィンドウを作成してから行う)
-		if (FAILED(m_pRenderer->Init(hWnd, FALSE)))
+		if (FAILED(m_pRenderer->Init(hWnd, TRUE)))
 		{
 			// 終了処理
 			m_pRenderer->Uninit();
